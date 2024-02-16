@@ -88,3 +88,44 @@
 
 #### 09 绝不在构造和析构过程中调用 virtual 函数
 
+- base class 构造期间 virtual  class 不是 virtual class。
+
+#### 10 令 operator= 返回一个 reference to *this
+
+- 为了实现连续赋值
+
+#### 11 在 operator= 中处理自赋值
+
+- 具备异常安全性的自赋值处理
+
+  ```cpp
+  A &A::operator=(const A &rhs) {
+      B *porig = pb;
+      pb = new B(*rhs.pb);
+      delete porig;
+      return *this;
+  }
+  ```
+
+#### 12 复制对象时勿忘其每一个部分
+
+- 任何时候只要需要为派生类编写 copying 函数，必须很小心的复制基类部分。派生类应调用相应的基类 copying 函数。
+
+  ```cpp
+  class B {}
+  class D : public B {}
+  D::D(const D &rhs) : B(rhs) {
+  }
+  D &D::operator=(const D &rhs) {
+      B::operator=(rhs);
+      return *this;
+  }
+  ```
+
+- 拷贝构造和拷贝赋值运算符在实现上均不应该互相调用。
+
+#### 13 以对象管理资源
+
+- 把资源放进对象内，可以依赖 C++ 的析构函数自动调用机制确保资源被释放（智能指针策略）。
+- 手动释放资源也可以自行设计资源管理类。
+
