@@ -122,4 +122,17 @@
   }
   ```
 
-- 
+- 模板特例化
+
+  ```cpp
+  template<typename T>
+  int compare(const T &lhs, const T &rhs) { ... } // template
+  
+  template<>
+  int compare(const char * const &lhs, const char * const &rhs) { ... } // special template for const char *
+  ```
+
+  - 定义特例化版本时，函数参数必须与一个先声明的模板中对应的类型匹配。
+
+  - 模板及其特例化版本应该声明在同一个头文件中，所有同名模板的声明应该放在前面，而后是这些模板的特例化版本。
+  - 类模板中，template <> 表明全特例化版本，类模板也可以部分特例化。
