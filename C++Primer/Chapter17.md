@@ -122,4 +122,89 @@
     }
     ```
 
+- 随机数
+
+  - C++ 程序不应该使用库函数 rand，而应使用 default_random_engine 类和恰当的分布类对象。
+
+    default_random_engine 定义了调用运算符来获取下一个随机数。
+
+    ```cpp
+    default_random_engine e;
+    for (size_t i = 0; i < 10; ++i) {
+        cout << e() << endl;
+    }
+    ```
+
+  - 标准库定义了多个随机数引擎类，区别在于性能和随机性质量不同，每个编译器都会指定其中一个作为 default_random_engine 类型，此类型一般具有最常用的特性。
+
+  - 随机数引擎操作
+
+    ```cpp
+    Engine e;
+    Engine e(s); // s is seed.
+    e.seed(s); // use seed s to reset random engine.
+    e.min(); // this engine min value.
+    e.max(); // this engine max value.
+    Engine::result_type; // result type.
+    e.discard(u); // push u step of engine.
+    ```
+
+  - 分布类型和引擎
+
+    ```cpp
+    uniform_int_distribution<unsigned> u(0, 9);
+    default_random_engine e;
+    for (size_t i = 0; i < 0; ++i) {
+        cout << u(e) << endl;
+    } // generate 0 - 9 random number.
+    ```
+
+    分布类型也是函数对象类，分布类型定义了一个调用运算符，它接受一个随机数引擎作为参数，分别对象使用引擎参数生成随机数，并将其映射到指定的分布。
+
+  - 随机数引擎定义为 static 才能保持状态使得每次调用的随机序列不同。通过设置种子可以使每次运行结果不同。
+
+  - 其他随机数分布
+
+    ```cpp
+    uniform_real_distribution<double> u(0, 1); // 0 - 1 real number.
+    normal_distribution<> n(4, 1.5); // normal distribution.
+    bernoulli_distribution b; // 0.5 true, and 0.5 false.
+    ```
+
+- IO 库再探
+
+  - 操作符改变格式状态
+
+    ```cpp
+    boolalpha <=> noboolalpha // change bool value 0, 1 to false, true.
+    default, oct, hex, dec // change scale,
+    showbase <=> noshowbase // show base like 0xff, 023.
+    uppercase <=> nouppercase // change 0xff to 0XFF
+    ```
+
+    类似操作还有很多，可以控制浮点精度，输出格式，输入格式等。
+
+  - 未格式化的输入输出操作
+
+    标准库还提供了一组低层操作，支持未格式化 IO，这些操作允许我们将一个流当作一个无解释的字节序列来处理。
+
+  - 流随机访问
+
+    各种流类型通常都支持对流中数据的随机访问，我们可以重定位流，使之跳过一些数据，首先读取最后一行，然后读第一行等等。标准库提供了一对函数，来定位 seek，到流中给定的位置，以及告诉 tell 我们当前的位置。
+
+    虽然标准库为所有流类型都定义了 seek 和 tell 函数，但它们是否会做有意义的事情依赖于流绑定到什么设备， 绑定到 cin、cout 等流的不支持随机访问，因为没有意义。
+
+    以下内容针对 fstream 和 sstream。
+
+    为了支持随机访问，IO 类维护了一个标记来确定下一个读写操作要在哪里进行。标准库提供了两个函数，一个函数通过将标记 seek 到一个给定位置来重定位它，另一个函数 tell 我们标记的当前位置。
+
+    ```cpp
+    tellg(); // input stream.
+    tellp(); // output stream.
+    seekg(pos); // input stream.
+    seekp(pos); // output stream, pos is usually the value get from tell function,
+    seekg(off, from); // change flag to from + offset.
+    seekp(off, from);
+    ```
+
     
