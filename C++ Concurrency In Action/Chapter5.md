@@ -284,5 +284,55 @@
 
     - 但是在弱序内存模型架构的则会严重损失性能
   
-  - 
-
+  - 非先后一致顺序
+  
+    不同线程看到的同一组操作的次序和效果可能出现差异，同一份代码在多个线程下运行，可能由于某些线程上的操作没有显式的次序约束，因此他们有可能无法就多个事件的发生达成一致，并且在不同的 CPU 缓存和内部缓存钟，同一份内存数据也可能有不同的值。
+  
+  - 宽松次序
+  
+    采用宽松次序，原子类型上的操作不再存在同步关系，在单一线程内，同一变量上的操作仍服从先行次序，但不要求线程间存在任何次序关系。<font color=red>该内存次序的唯一要求就是在一个线程内，对相同变量的访问次序不得重新编排。</font>
+  
+    不同变量上的宽松原子操作可以自由的重新排列，前提是这些操作受到限定而须服从先行关系，不会产生同步关系。
+  
+    非必要并不建议使用宽松原子次序。
+    
+  - 获得-释放次序
+  
+    该内存模型中，原子化载入即为获取操作（memory_order_acquire），原子化的载入即为释放操作（memory_order_release），而原子化的 “读-改-写” 操作（fetch_add 和 exchange）则为获取或释放操作，或者二者皆是（memory_order_acq_rel）。这种次序在成对的读写线程之间起到同步作用，释放与获取操作构成同步关系，前者写出的值由后者获取。
+  
+    以下为个人理解
+  
+    ```cpp
+    #include <thread>
+    #include <atomic>
+    #include <iostream>
+    
+    std::atomic<bool> a;
+    std::atomic<int> b;
+    
+    void write() {
+        b.store(1, std::memory_order_release); // in real code, we may do something to set b value.
+        a.store(true, std::memory_order_release); // if b has updated, set a true as a flag.
+    }
+    
+    void read() {
+        while (!a.load(std::memory_order_acquire)) {}
+        std::cout << b.load(std::memory_order_acquire);
+    }
+    
+    int main() {
+        a = false;
+        b = 0;
+        std::thread t1(write);
+        std::thread t2(read);
+        t1.join();
+        t2.join();
+        return 0;
+    }
+    ```
+  
+    这里代码模拟了一个场景，例如我们需要更新 b 的值，并将 a 作为一个标志，表明 b 已经更新完成。这里使用 `std::memory_order_release` 保证 a 更新之前，b 一定已经更新。load 操作时使用 `std::memory_order_acquire` 保证 b 的 load 操作一定在自旋等待之后执行。
+  
+    - 这里认为 b 其实可以设置为宽松次序，假设现在还有 c 需要更新，a 表明两个都更新完成，但是 b、c 之前其实没有先后次序，完成可以都用宽松次序实现。
+    - 比较神奇的点是，将 a 的读写均改为宽松次序后，预期时有可能 b 的输出并不为 1，但是多次执行也并不能在 VS Studio 中复现这个现象。
+  
