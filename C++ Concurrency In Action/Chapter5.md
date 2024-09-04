@@ -335,4 +335,81 @@
   
     - 这里认为 b 其实可以设置为宽松次序，假设现在还有 c 需要更新，a 表明两个都更新完成，但是 b、c 之前其实没有先后次序，完成可以都用宽松次序实现。
     - 比较神奇的点是，将 a 的读写均改为宽松次序后，预期时有可能 b 的输出并不为 1，但是多次执行也并不能在 VS Studio 中复现这个现象。
+    
+    这里在对获得-释放做一些深入的说明
+    
+    - 当一个线程对共享变量执行写操作并使用 memory_order_release 作为内存顺序时，它保证了
+      - 释放操作：该写操作之前的所有写操作，包含写入其他内存的操作，都将对其他线程可见，这表明使用该内存次序的写操作为一个同步点，它确保了之前所有写入操作都已经完成，并对其他线程可见。
+    - 当一个线程对共享变量执行读操作并使用 memory_order_acquire 作为内存顺序时
+      - 保证可见性：使用 memory_order_acquire 的读操作保证了其他线程中使用 memory_order_release 写入的值对当前线程可见。
+      - 不保证立即性：虽然 memory_order_acquire 确保了内存顺序和可见性，但并不保证可以立即看到最新写入的值。
+    - 当一个线程对共享变量执行 memory_order_release 写操作时，它释放了一个同步点，确保了所有在该写操作之前的写入操作都对其他线程可见。
+    - 当另一个线程使用 memory_order_acquire 的读操作读取同一个共享变量时，他获取一个同步点，确保所有在该读操作之后的读取操作都将看到写入线程中 memory_order_release 写操作之前的所有写入。
+    
+  - 内存顺序整体的深入理解
   
+    - 内存序需要完整标记，如果有一个 writer thread 的原子变量的写操作施放 `seq_cst` 而对应 reader thread 同一原子变量的读操作却只施放 `relaxed`，那么在语言层面上并不提供同步和全局顺序一致性的保证。
+    - RMW 操作（read-modify-write，比如 `atomic::exchange()` 函数）总是能读到改动序列中最新的值。
+    
+  - 线程间的先行关系具有<font color=red>传递性</font>
+  
+  - 再探著名的 CAS 操作 `compare_exchange_strong`/`compare_exchange_weak` （ref：[cpp_reference](https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange)）
+  
+    不考虑内存顺序的基本函数原型
+  
+    ```cpp
+    bool compare_exchange_strong(T &expected, T desired, some_memory_order);
+    ```
+  
+    这个函数本质就是用于检查当前原子变量是否符合预期，如果符合预期则将 desired 赋值给他，如果不符合预期，说明预期已经陈旧，因此需要更新预期值。
+  
+  - memory_order_consume 的内存顺序较为特殊，暂时不考虑使用。
+  
+- 释放序列与同步关系
+
+  针对同一个原子变量，可以在线程甲上对其执行储存操作，在线程乙上对其执行载入操作，从而构成同步关系，即使之前存在任意多个 “读-改-写” 操作，这成立的前提条件是，所有操作都采用合适的内存次序标记，储存与载入操作相扣成链，每次载入的值都源自前面的储存操作，则该操作链由一个<font color=red>释放序列组成</font>。操作链上可以有任意多的 “读-改-写” 操作，并且每个都有对应的 store 与之同步，他们可以是不同类型的操作，并且以不同内存次序语义标记。
+
+- 栅栏
+
+  栅栏用于强制施加内存次序，却无需改动任何数据。通常，他们与服从 memory_order_relaxed 次序的原子操作组合使用。栅栏操作全部通过全局函数执行，当线程运行至栅栏处时，便对线程中其他原子操作的次序产生作用。常被称之为 “内存卡” 和 “内存屏障”。
+
+  ```cpp
+  #include <atomic>
+  #include <thread>
+  #include <assert.h>
+  
+  atomic<bool> x,y;
+  atomic<int> z;
+  
+  void write_x_then_y() {
+      x.store(true, std::memory_order_relaxed);
+      std::atomic_thread_fence(std::memory_order_release);
+      y.store(true, std::memory_order_relaxed);
+  }
+  
+  void read_y_then_x() {
+      while (!y.load(std::memory_order_relaxed)) {}
+      std::atomic_thread_fence(std::memory_order_acquire);
+      if (x.load(std::memory_order_relaxed))
+      {
+          ++z;
+      }
+  }
+  
+  int main() {
+      x = false;
+      y = false;
+      z = 0;
+      std::thread t1(write_x_then_y);
+      std::thread t2(read_y_then_x);
+      t1.join();
+      t2.join();
+      assert(z != 0);
+  }
+  ```
+
+  由于栅栏的存在，上述断言并不会触发。
+
+- 强制非原子操作服从内存次序
+
+  基本原理如下，如果非原子操作甲在原子操作乙之前执行，而另一线程上执行了原子操作丙，并且操作乙在操作丙之前发生，则甲也在丙之前发生。本质互斥锁的作用就是上述，通过原子操作的同步顺序关系来控制非原子的线程间同步。
