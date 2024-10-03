@@ -1,0 +1,80 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		// 1.cmake config
+		{
+			"type": "cppbuild",
+			"label": "CMake: config",
+			"command": "cmake",
+			"args": [
+				"-DCMAKE_BUILD_TYPE=Debug",
+				"-S .",
+				"-B build"
+			],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			}
+		},
+		// 2.cmake build
+		{
+			"type": "cppbuild",
+			"label": "CMake: build"	,
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"dependsOn": [
+				"CMake: config"
+			]
+		},
+		// 3.delete build dir
+		{
+			"type": "shell",
+			"label": "delete build dir",
+			"command": "rm",
+			"args": [
+				"-rf",
+				"build"
+			],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			}
+		},
+		// 4.run exe
+		{
+			"type": "shell",
+			"label": "run exe",
+			"command": "./build/cmake_debug",
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"dependsOn": [
+				"CMake: build"
+			]
+		}
+	]
+}
