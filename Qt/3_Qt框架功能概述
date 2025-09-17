@@ -1,0 +1,41 @@
+# Chapter 3 Qt 框架功能概述
+
+- Qt 框架中的模块分为两大类
+  - Qt Essentials：Qt 框架的基础模块
+  - Qt Addons：Qt 框架的附加模块，常见的有
+    - Qt Charts：绘制各种统计图表
+    - Qt 3D：3D 图形与渲染支持
+    - Qt Multimedia：多媒体处理（音频、视频、相机）
+    - Qt XML：XML 解析
+    - Qt WebEngine：基于 Chromium 的浏览器引擎
+    - Qt Data Visualization：3D 数据可视化
+    - Qt Remote Objects：远程对象通信
+- Qt 编译时使用 lib 其实是 import library（导入库），这个 lib 只提供符号表，告诉编译器某个函数在某个 dll 中
+
+## 元对象系统
+
+Qt 的元对象系统的功能建立在以下 3 个方面
+- QObject 类是所有使用元对象系统的类的基类
+- 必须在一个类的开头部分插入宏 Q_OBJECT
+- MOC 为每个 QObject 的子类提供必要的代码来实现元对象系统的特性
+
+## 信号与槽
+
+- 如果我们要自定义一个操作，需要自定义信号和槽，信号是通过重载父类事件处理函数实现发射与信号传递
+  ```C++
+  class MyButton : public QPushButton {
+      Q_OBJECT
+  
+  public:
+      MyButton(QWidget *parent = nullptr) : QPushButton(parent) {}
+  
+  signals:
+      void clicked(int x, int y); // 自定义信号，传递点击位置的坐标
+  
+  protected:
+      void mousePressEvent(QMouseEvent *event) override {
+          QPushButton::mousePressEvent(event); // 调用父类的处理逻辑
+          emit clicked(event->pos().x(), event->pos().y()); // 触发信号    并传递参数
+      }
+  };
+  ```
