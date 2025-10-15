@@ -388,3 +388,90 @@ Parent:
   </List>
 </template>
 ```
+
+## 动态组件
+
+```html
+<script setup>
+import { ref } from 'vue'
+import ChartView from './ChartView.vue'
+import TableView from './TableView.vue'
+const currentView = ref('chart')
+const views = { chart: ChartView, table: TableView }
+</script>
+
+<template>
+  <div>
+    <button @click="currentView = 'chart'">图表</button>
+    <button @click="currentView = 'table'">表格</button>
+
+    <keep-alive>
+      <component :is="views[currentView]" />
+    </keep-alive>
+  </div>
+</template>
+```
+
+keep-alive 会让 vue 将移除的组件缓存而不是销毁，keep-alive 属性如下
+- include：支持 string，RegExp，Array，只有名称匹配的组件才会被缓存
+- exclude：支持 string，RegExp，Array，任何名称匹配的组件都不会被缓存
+- max：支持 number，string，最多可以缓存多少个组件实例
+
+对于缓存组件来说，再次进入不会执行 created 或 mounted，但是可以通过 activated 和 deactivated 来判断是否显示还是隐藏。
+
+## 异步组件
+```typescript
+const ChartView = defineAsyncComponent(() =>
+  import('./ChartView.vue')
+)
+```
+
+通过 defineAsyncComponent 函数实现懒加载，
+- Vue 只在第一次渲染到它时才会执行 `import('./ChartView.vue')`
+
+- 会自动返回一个 Promise，在加载完成后渲染组件
+
+Vue 允许你配置异步组件的加载中状态和错误重试逻辑：
+```typescript
+import { defineAsyncComponent } from 'vue'
+
+const AsyncComp = defineAsyncComponent({
+  loader: () => import('./ChartView.vue'),
+  loadingComponent: () => import('./Loading.vue'), // 加载中
+  errorComponent: () => import('./Error.vue'),     // 加载失败时显示
+  delay: 200, // 延迟 200ms 才显示 loading
+  timeout: 3000, // 超时 3 秒则报错
+  onError(error, retry, fail, attempts) {
+    if (attempts < 3) retry()
+    else fail()
+  }
+})
+```
+
+在一个组件树中，如果存在多个异步组件，那么每个异步组件都需要处理自己的加载，报错和完成状态，为了能统一这些组件，Vue 提供了内置的 Suspense 组件。
+
+Suspense 可以让我们在组件树的上层等待下层的多个嵌套异步依赖项解析完成，并可以在等待时渲染一个加载状态，防止在最坏情况下，看到多个 Loading 加载状态。如果异步组件的父组件链中存在一个 Suspense 组件，那么该异步组件将被视为该 Suspense 组件的异步依赖项，这种情况下，异步组件的加载状态由 Suspense 控制，异步组件自身的加载，错误，延迟和超时都会被忽略。
+
+Suspense 组件包含两个插槽
+- default：如果 default 插槽可以显示，则显示 default 插槽内容
+- fallback：如果 default 插槽无法显示，则会显示 fallback 插槽的内容
+
+```html
+<script setup>
+import { defineAsyncComponent } from 'vue'
+
+const AsyncChart = defineAsyncComponent(() => import('./ChartView.vue'))
+</script>
+
+<template>
+  <Suspense>
+    <template #default>
+      <AsyncChart />
+    </template>
+    <template #fallback>
+      <div>正在加载中...</div>
+    </template>
+  </Suspense>
+</template>
+```
+
