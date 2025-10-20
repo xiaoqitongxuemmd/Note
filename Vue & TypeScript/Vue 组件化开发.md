@@ -475,3 +475,101 @@ const AsyncChart = defineAsyncComponent(() => import('./ChartView.vue'))
 </template>
 ```
 
+## 获取元素或组件的实例
+
+Vue 中不推荐直接操作元素，而是通过 ref 属性
+
+```html
+<template>
+  <div ref="boxRef" class="box">Hello</div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
+const boxRef = ref<HTMLDivElement | null>(null)
+
+onMounted(() => {
+  console.log(boxRef.value) // 👉 输出真实 DOM 元素 <div class="box">...</div>
+  boxRef.value?.focus?.()
+})
+</script>
+```
+
+多元素使用 `v-for`
+```html
+<template>
+  <div v-for="(item, i) in 3" :key="i" :ref="el => boxRefs[i] = el">
+    Box {{ i }}
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
+const boxRefs = ref<(HTMLDivElement | null)[]>([])
+
+onMounted(() => {
+  console.log(boxRefs.value) // [div, div, div]
+})
+</script>
+```
+
+访问组件的父组件，不推荐频繁访问，并且容易耦合层级结构，官方不推荐使用
+```html
+import { getCurrentInstance, onMounted } from 'vue'
+
+onMounted(() => {
+  const instance = getCurrentInstance()
+  console.log(instance?.proxy) // 当前组件实例
+  console.log(instance?.proxy?.$parent) // 父组件实例
+})
+```
+
+这里的 proxy 是获取当前 inst 的代理对象，其结构类似
+```
+{
+  $el: HTMLDivElement,        // 当前组件的根 DOM
+  $props: { ... },            // props 对象
+  $refs: { ... },             // 所有 ref 引用
+  $emit: ƒ,                   // 触发事件
+  $parent: Proxy,             // 父组件的 proxy
+  $root: Proxy,               // 根组件的 proxy
+  $slots: { ... },            // 插槽
+  $data: { ... },             // data 里的响应式数据
+  ...
+}
+```
+
+## 组件的生命周期
+
+```scss
+组件创建阶段
+  ↓
+setup()
+  ↓
+onBeforeMount()
+  ↓
+onMounted()          ← 渲染完成，可访问DOM
+  ↓
+数据更新阶段
+  ↓
+onBeforeUpdate()
+  ↓
+onUpdated()
+  ↓
+组件销毁阶段
+  ↓
+onBeforeUnmount()
+  ↓
+onUnmounted()
+```
+
+- beforeCreate：在组件实例初始化完成后立即调用
+- created：组件实例处理完所有与状态相关的选项后调用
+- beforeMount：组件在被挂载前调用
+- Mounted：组件被挂载后调用
+- beforedUpdate：在组件即将因为一个响应式状态变更而更新 DOM 树之前调用
+- updated：在组件更新 DOM 树之后调用
+- beforeUnmount：在实例被卸载前调用
+- Unmounted：实例被卸载后调用
